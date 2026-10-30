@@ -998,3 +998,336 @@ If you are running this from a local server (like localhost), the issue is almos
         function createNewConversation(firstMessage) {
             currentConversationId = 'conv_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
             const title = firstMessage.length > 50 ? firstMessage.substring(0, 50) + '...' : firstMessage;
+            const conversation = {
+                id: currentConversationId,
+                title: title,
+                messages: [],
+                timestamp: new Date(),
+                model: currentModel
+            };
+            recentConversations.unshift(conversation);
+            if (recentConversations.length > 10) {
+                recentConversations = recentConversations.slice(0, 10);
+            }
+            updateRecentItems();
+            console.log('📝 Created new conversation:', title);
+        }
+
+        function updateRecentItems() {
+            const recentItemsContainer = document.getElementById('recentItems');
+            recentItemsContainer.innerHTML = '';
+            if (recentConversations.length === 0) {
+                const emptyDiv = document.createElement('div');
+                emptyDiv.className = 'empty-state';
+                emptyDiv.innerHTML = '<span style="color: #666; font-size: 13px; font-style: italic;">No recent conversations</span>';
+                recentItemsContainer.appendChild(emptyDiv);
+            } else {
+                recentConversations.forEach(conversation => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'recent-item';
+                    itemDiv.textContent = conversation.title;
+                    itemDiv.addEventListener('click', () => loadConversation(conversation.id));
+                    recentItemsContainer.appendChild(itemDiv);
+                });
+            }
+        }
+
+        function loadConversation(conversationId) {
+            const conversation = recentConversations.find(conv => conv.id === conversationId);
+            if (!conversation) return;
+            currentConversationId = conversationId;
+            chatHistory = [...conversation.messages];
+            currentModel = conversation.model;
+            updateModelDisplay();
+            switchToChatView();
+            const chatMessages = document.getElementById('chatMessages');
+            chatMessages.innerHTML = '';
+            conversation.messages.forEach(msg => {
+                addMessage(msg.content, msg.role);
+            });
+            document.getElementById('chatInput').focus();
+            console.log('📂 Loaded conversation:', conversation.title);
+        }
+
+        function switchToChatView() {
+            document.getElementById('welcomeScreen').style.display = 'none';
+            document.getElementById('chatContainer').classList.add('active');
+            console.log('🔄 Switched to chat view');
+        }
+
+        function startNewChat() {
+            chatHistory = [];
+            currentConversationId = null;
+            
+            // --- BUG FIX: Reset model to default on new chat ---
+            currentModel = availableModels[0].apiName;
+            updateModelDisplay();
+            
+            const welcomeScreen = document.getElementById('welcomeScreen');
+            const chatContainer = document.getElementById('chatContainer');
+            const chatMessages = document.getElementById('chatMessages');
+            const welcomeInput = document.getElementById('welcomeInput');
+            
+            if (welcomeScreen) welcomeScreen.style.display = 'flex';
+            if (chatContainer) chatContainer.classList.remove('active');
+            if (chatMessages) chatMessages.innerHTML = '';
+            if (welcomeInput) {
+                welcomeInput.value = '';
+                autoResize(welcomeInput);
+                welcomeInput.focus();
+            }
+            autoResize(document.getElementById('chatInput'));
+            
+            console.log('🆕 Started new chat, model reset to default.');
+        }
+
+        async function sendMessage(message) {
+            if (isStreaming) return;
+            
+            console.log('🚀 Starting to send message...');
+            addMessage(message, 'user');
+            showTypingIndicator();
+            setInputState(false);
+
+            chatHistory.push({ role: 'user', content: message });
+            
+            try {
+                isStreaming = true;
+                if (typeof puter === 'undefined') { throw new Error('Puter.js is not available.'); }
+                console.log('📡 Calling Puter AI with model:', currentModel, 'and full history.');
+                
+                const response = await puter.ai.chat(chatHistory, {
+                    model: currentModel,
+                    stream: true
+                });
+
+                if (response && response.success === false) {
+                    throw new Error('Authentication required. Please click the authenticate button and allow the popup.');
+                }
+                
+                const { messageContent } = addMessage('', 'assistant');
+                hideTypingIndicator();
+                let fullResponse = '';
+                
+                for await (const part of response) {
+                    if (part?.text) {
+                        fullResponse += part.text;
+                        renderFormattedMessage(fullResponse, messageContent);
+                        scrollToBottom();
+                    }
+                }
+                
+                console.log('✅ Streaming complete.');
+                renderFormattedMessage(fullResponse, messageContent); 
+                
+                chatHistory.push({ role: 'assistant', content: fullResponse });
+                updateCurrentConversation();
+                
+            } catch (error) {
+                console.error('❌ Error in sendMessage:', error);
+                hideTypingIndicator();
+                addMessage('Sorry, I encountered an error: ' + (error.message || 'Unknown error.'), 'assistant', true);
+                
+                // FIX: The API call failed, so the optimistic user message added to the history
+                // resulted in an invalid state. Remove it to allow the user to try again.
+                if (chatHistory.length > 0 && chatHistory[chatHistory.length - 1].role === 'user') {
+                    chatHistory.pop();
+                }
+
+            } finally {
+                isStreaming = false;
+                setInputState(true);
+                document.getElementById('chatInput')?.focus();
+            }
+        }
+
+        function updateCurrentConversation() {
+            if (!currentConversationId) return;
+            const conversation = recentConversations.find(conv => conv.id === currentConversationId);
+            if (conversation) {
+                conversation.messages = [...chatHistory];
+                conversation.timestamp = new Date();
+                const index = recentConversations.indexOf(conversation);
+                if (index > 0) {
+                    recentConversations.splice(index, 1);
+                    recentConversations.unshift(conversation);
+                    updateRecentItems();
+                }
+            }
+        }
+
+        function addMessage(content, role, isError = false) {
+            const chatMessages = document.getElementById('chatMessages');
+            const messageId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+            messageDiv.setAttribute('data-message-id', messageId);
+            
+            const avatar = document.createElement('div');
+            avatar.className = 'message-avatar';
+            avatar.innerHTML = role === 'user' ? 'H' : `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`;
+            
+            const messageContent = document.createElement('div');
+            messageContent.className = 'message-content';
+            
+            if (role === 'assistant') renderFormattedMessage(content, messageContent);
+            else messageContent.textContent = content;
+            
+            if (isError) messageContent.style.color = '#ff6b6b';
+            
+            messageDiv.appendChild(avatar);
+            messageDiv.appendChild(messageContent);
+            chatMessages.appendChild(messageDiv);
+            
+            scrollToBottom();
+            return { messageId, messageContent };
+        }
+        
+        function renderFormattedMessage(content, container) {
+            container.innerHTML = ''; // Clear previous content
+            const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
+            let lastIndex = 0;
+            let match;
+
+            while ((match = codeBlockRegex.exec(content)) !== null) {
+                if (match.index > lastIndex) {
+                    const textPart = document.createElement('div');
+                    textPart.className = 'message-text-part';
+                    textPart.textContent = content.substring(lastIndex, match.index);
+                    container.appendChild(textPart);
+                }
+
+                const [fullMatch, language, code] = match;
+                container.appendChild(createArtifactCanvas(code.trim(), language || 'text'));
+                lastIndex = match.index + fullMatch.length;
+            }
+
+            if (lastIndex < content.length) {
+                 const textPart = document.createElement('div');
+                textPart.className = 'message-text-part';
+                textPart.textContent = content.substring(lastIndex);
+                container.appendChild(textPart);
+            }
+            
+            if (container.children.length === 0 && content) {
+                 const textPart = document.createElement('div');
+                textPart.className = 'message-text-part';
+                textPart.textContent = content;
+                container.appendChild(textPart);
+            }
+        }
+
+        function createArtifactCanvas(code, language) {
+            const canvas = document.createElement('div');
+            canvas.className = 'artifact-canvas';
+
+            const header = document.createElement('div');
+            header.className = 'artifact-header';
+            
+            const title = document.createElement('div');
+            title.className = 'artifact-title';
+            title.textContent = language ? `${language} code` : 'Code Artifact';
+            
+            const actions = document.createElement('div');
+            actions.className = 'artifact-actions';
+
+            if (language.toLowerCase() === 'html') {
+                const viewBtn = document.createElement('button');
+                viewBtn.className = 'artifact-btn view-btn';
+                viewBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5C21.27 7.61 17 4.5 12 4.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg> View`;
+                viewBtn.onclick = () => {
+                    const blob = new Blob([code], { type: 'text/html' });
+                    window.open(URL.createObjectURL(blob), '_blank');
+                };
+                actions.appendChild(viewBtn);
+            }
+            
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'artifact-btn';
+            const copyIcon = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg> Copy`;
+            copyBtn.innerHTML = copyIcon;
+            copyBtn.onclick = () => {
+                navigator.clipboard.writeText(code).then(() => {
+                    copyBtn.textContent = 'Copied!';
+                    setTimeout(() => { copyBtn.innerHTML = copyIcon; }, 2000);
+                });
+            };
+
+            const downloadBtn = document.createElement('button');
+            downloadBtn.className = 'artifact-btn';
+            downloadBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg> Download`;
+            downloadBtn.onclick = () => {
+                const extensionMap = { javascript: 'js', python: 'py', html: 'html', css: 'css', json: 'json', java: 'java', csharp: 'cs', cpp: 'cpp', ruby: 'rb', go: 'go', rust: 'rs', shell: 'sh', bash: 'sh' };
+                const extension = extensionMap[language.toLowerCase()] || 'txt';
+                const filename = `claude-code.${extension}`;
+                const blob = new Blob([code], { type: 'text/plain' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = filename;
+                a.click();
+                a.remove();
+            };
+
+            actions.appendChild(copyBtn);
+            actions.appendChild(downloadBtn);
+            header.appendChild(title);
+            header.appendChild(actions);
+
+            const codeArea = document.createElement('div');
+            codeArea.className = 'artifact-code';
+            const pre = document.createElement('pre');
+            const codeEl = document.createElement('code');
+            codeEl.textContent = code;
+            pre.appendChild(codeEl);
+            codeArea.appendChild(pre);
+
+            canvas.appendChild(header);
+            canvas.appendChild(codeArea);
+
+            return canvas;
+        }
+
+        function showTypingIndicator() {
+            const typingIndicator = document.getElementById('typingIndicator');
+            if (typingIndicator) {
+                typingIndicator.style.display = 'flex';
+                scrollToBottom();
+            }
+        }
+
+        function hideTypingIndicator() {
+            document.getElementById('typingIndicator').style.display = 'none';
+        }
+
+        function setInputState(enabled) {
+            const inputs = [
+                document.getElementById('welcomeInput'),
+                document.getElementById('chatInput'),
+                document.getElementById('sendBtn'),
+                document.getElementById('chatSendBtn')
+            ];
+            inputs.forEach(input => {
+                if (input) {
+                    input.disabled = !enabled;
+                    input.style.opacity = enabled ? '1' : '0.6';
+                }
+            });
+        }
+
+        function scrollToBottom() {
+            const chatMessages = document.getElementById('chatMessages');
+            if (chatMessages) {
+                requestAnimationFrame(() => {
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                });
+            }
+        }
+
+        function autoResize(textarea) {
+            if (!textarea) return;
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 150) + 'px';
+        }
+    </script>
+</body>
+</html>
