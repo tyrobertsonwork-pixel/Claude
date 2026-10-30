@@ -393,7 +393,7 @@
 
         .search-input {
             width: 100%;
-            padding: 16px 120px 16px 16px;
+            padding: 16px 120px 16px 52px;
             background-color: #262626;
             border: 1px solid #404040;
             border-radius: 12px;
@@ -415,6 +415,57 @@
             color: #808080;
         }
 
+        .attachment-preview {
+            display: none;
+            flex-wrap: wrap;
+            gap: 7px;
+            margin: 0 0 8px;
+        }
+        .attachment-preview.has-files { display: flex; }
+        .attachment-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            max-width: 100%;
+            padding: 6px 9px;
+            border: 1px solid #484848;
+            border-radius: 9px;
+            background: #303030;
+            color: #e5e5e5;
+            font-size: 12px;
+        }
+        .attachment-chip span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 190px;
+        }
+        .attachment-chip button {
+            border: 0;
+            background: transparent;
+            color: #aaa;
+            font-size: 16px;
+            cursor: pointer;
+            line-height: 1;
+        }
+        .attach-btn {
+            position: absolute;
+            left: 8px;
+            top: 25px;
+            transform: translateY(-50%);
+            width: 34px;
+            height: 34px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 0;
+            border-radius: 8px;
+            background: transparent;
+            color: #b8b8b8;
+            cursor: pointer;
+        }
+        .attach-btn:hover { background: #404040; color: #fff; }
+        .attach-btn:disabled { opacity: .45; cursor: wait; }
         .search-actions {
             position: absolute;
             right: 8px;
@@ -807,6 +858,10 @@
                     </div>
                     
                     <div class="search-container">
+                        <div class="attachment-preview" id="welcomeAttachmentPreview"></div>
+                        <button class="attach-btn" type="button" aria-label="Attach files" title="Attach files" onclick="openFilePicker()">
+                            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11.1-8.5 8.5a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg>
+                        </button>
                         <textarea class="search-input" id="welcomeInput" placeholder="How can I help you today?" rows="1"></textarea>
                         <div class="search-actions">
                             <button class="search-btn" id="researchBtn">Research</button>
@@ -894,6 +949,10 @@
                     </div>
                     
                     <div class="search-container">
+                        <div class="attachment-preview" id="chatAttachmentPreview"></div>
+                        <button class="attach-btn" type="button" aria-label="Attach files" title="Attach files" onclick="openFilePicker()">
+                            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11.1-8.5 8.5a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg>
+                        </button>
                         <textarea class="search-input" id="chatInput" placeholder="Message Claude..." rows="1"></textarea>
                         <div class="search-actions">
                             <button class="model-btn" id="chatModelSelector" style="padding: 6px 8px; font-size: 12px;">
@@ -911,6 +970,7 @@
         </div>
     </div>
 
+    <input id="fileInput" type="file" multiple hidden accept=".pdf,.doc,.docx,.txt,.md,.csv,.json,.rtf,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.webp,.gif" onchange="handleFileSelection(event)">
     <script>
         // Global state
         const availableModels = [
@@ -923,6 +983,9 @@
         let isStreaming = false;
         let recentConversations = [];
         let currentConversationId = null;
+        let selectedAttachments = [];
+        const MAX_ATTACHMENT_SIZE = 15 * 1024 * 1024;
+        const ALLOWED_ATTACHMENT_EXTENSIONS = ['pdf','doc','docx','txt','md','csv','json','rtf','xls','xlsx','ppt','pptx','png','jpg','jpeg','webp','gif'];
 
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', function() {
@@ -1097,24 +1160,80 @@
             console.log('🔄 Model switched to:', availableModels[nextIndex].displayName);
         }
 
+        function openFilePicker() {
+            if (isStreaming) return;
+            document.getElementById('fileInput')?.click();
+        }
+
+        function handleFileSelection(event) {
+            const files = Array.from(event.target.files || []);
+            const errors = [];
+            files.forEach(file => {
+                const ext = (file.name.split('.').pop() || '').toLowerCase();
+                if (!ALLOWED_ATTACHMENT_EXTENSIONS.includes(ext)) {
+                    errors.push(file.name + ': unsupported file type');
+                } else if (file.size > MAX_ATTACHMENT_SIZE) {
+                    errors.push(file.name + ': larger than 15 MB');
+                } else if (!selectedAttachments.some(item => item.name === file.name && item.size === file.size && item.lastModified === file.lastModified)) {
+                    selectedAttachments.push(file);
+                }
+            });
+            event.target.value = '';
+            renderAttachmentPreviews();
+            if (errors.length) alert(errors.join('\\n'));
+        }
+
+        function removeAttachment(index) {
+            selectedAttachments.splice(index, 1);
+            renderAttachmentPreviews();
+        }
+
+        function renderAttachmentPreviews() {
+            ['welcomeAttachmentPreview', 'chatAttachmentPreview'].forEach(id => {
+                const preview = document.getElementById(id);
+                if (!preview) return;
+                preview.innerHTML = '';
+                preview.classList.toggle('has-files', selectedAttachments.length > 0);
+                selectedAttachments.forEach((file, index) => {
+                    const chip = document.createElement('div');
+                    chip.className = 'attachment-chip';
+                    const name = document.createElement('span');
+                    name.textContent = file.name;
+                    const remove = document.createElement('button');
+                    remove.type = 'button';
+                    remove.textContent = '×';
+                    remove.setAttribute('aria-label', 'Remove ' + file.name);
+                    remove.addEventListener('click', () => removeAttachment(index));
+                    chip.append(name, remove);
+                    preview.appendChild(chip);
+                });
+            });
+        }
+
         async function handleWelcomeMessage() {
             const welcomeInput = document.getElementById('welcomeInput');
             const message = welcomeInput.value.trim();
-            if (!message || isStreaming) return;
-            console.log('📤 Sending welcome message:', message);
-            createNewConversation(message);
+            if ((!message && !selectedAttachments.length) || isStreaming) return;
+            const files = selectedAttachments.slice();
+            selectedAttachments = [];
+            renderAttachmentPreviews();
+            const prompt = message || 'Please review the attached file(s).';
+            createNewConversation(prompt);
             switchToChatView();
-            await sendMessage(message);
+            await sendMessage(prompt, files);
         }
 
         async function handleChatMessage() {
             const chatInput = document.getElementById('chatInput');
             const message = chatInput.value.trim();
-            if (!message || isStreaming) return;
+            if ((!message && !selectedAttachments.length) || isStreaming) return;
             console.log('📤 Sending chat message:', message);
+            const files = selectedAttachments.slice();
+            selectedAttachments = [];
+            renderAttachmentPreviews();
             chatInput.value = '';
             autoResize(chatInput);
-            await sendMessage(message);
+            await sendMessage(message || 'Please review the attached file(s).', files);
         }
 
         function createNewConversation(firstMessage) {
@@ -1203,7 +1322,7 @@
             console.log('🆕 Started new chat, model reset to default.');
         }
 
-        async function sendMessage(message) {
+        async function sendMessage(message, attachments = []) {
             if (isStreaming) return;
             
             console.log('🚀 Starting to send message...');
@@ -1211,11 +1330,20 @@
             showTypingIndicator();
             setInputState(false);
 
-            chatHistory.push({ role: 'user', content: message });
-            
+            const uploadedPaths = [];
             try {
                 isStreaming = true;
                 if (typeof puter === 'undefined') { throw new Error('Puter.js is not available.'); }
+                const userContent = [];
+                for (const file of attachments) {
+                    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                    const uploaded = await puter.fs.write('claude-attachment-' + Date.now() + '-' + safeName, file);
+                    if (!uploaded || !uploaded.path) throw new Error('Could not upload ' + file.name + ' to Puter storage.');
+                    uploadedPaths.push(uploaded.path);
+                    userContent.push({ type: 'file', puter_path: uploaded.path });
+                }
+                userContent.push({ type: 'text', text: message + (attachments.length ? '\\n\\nAttached files: ' + attachments.map(file => file.name).join(', ') : '') });
+                chatHistory.push({ role: 'user', content: attachments.length ? userContent : message });
                 console.log('📡 Calling Puter AI with model:', currentModel, 'and full history.');
                 
                 const response = await puter.ai.chat(chatHistory, {
@@ -1232,6 +1360,7 @@
                 let fullResponse = '';
                 
                 for await (const part of response) {
+                    if (part?.type === 'error') throw new Error(part.message || 'The AI provider returned an error.');
                     if (part?.text) {
                         fullResponse += part.text;
                         renderFormattedMessage(fullResponse, messageContent);
@@ -1257,6 +1386,9 @@
                 }
 
             } finally {
+                for (const path of uploadedPaths) {
+                    try { await puter.fs.delete(path); } catch (cleanupError) { console.warn('Temporary attachment cleanup failed:', cleanupError); }
+                }
                 isStreaming = false;
                 setInputState(true);
                 document.getElementById('chatInput')?.focus();
