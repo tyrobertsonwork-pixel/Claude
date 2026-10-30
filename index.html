@@ -962,21 +962,20 @@
                     authButton.disabled = true;
                 }
 
-                // Must be called directly from this button click so Safari allows
-                // Puter to open its sign-in window.
-                await puter.auth.signIn();
+                // Puter resolves this promise after the user completes sign-in.
+                // Do not immediately reject based on isSignedIn(): on some
+                // mobile Safari return flows the local status can update later.
+                const signInResult = await puter.auth.signIn();
+                console.log('Puter sign-in completed:', signInResult);
 
-                const signedIn = puter.auth.isSignedIn();
-                if (!signedIn) {
-                    throw new Error('Puter sign-in finished, but this page is not yet signed in. Please try again.');
-                }
-
-                console.log('Puter authentication successful');
                 if (authButton) {
-                    authButton.textContent = '✓ Connected to Puter';
+                    authButton.textContent = '✓ Puter sign-in completed';
                     authButton.style.backgroundColor = '#22c55e';
                     authButton.disabled = false;
                 }
+
+                // Verify the actual AI connection separately when the user sends
+                // their first prompt. Puter AI methods also handle auth automatically.
             } catch (error) {
                 console.error('Puter sign-in failed:', error);
                 const code = error && error.error ? error.error : '';
