@@ -464,6 +464,7 @@
             color: #b8b8b8;
             cursor: pointer;
         }
+        .search-container:has(.attachment-preview.has-files) .attach-btn { top: auto; bottom: 8px; transform: none; }
         .attach-btn:hover { background: #404040; color: #fff; }
         .attach-btn:disabled { opacity: .45; cursor: wait; }
         .search-actions {
@@ -1330,7 +1331,7 @@
             showTypingIndicator();
             setInputState(false);
 
-            const uploadedPaths = [];
+            let userMessageAddedToHistory = false;
             try {
                 isStreaming = true;
                 if (typeof puter === 'undefined') { throw new Error('Puter.js is not available.'); }
@@ -1344,6 +1345,7 @@
                 }
                 userContent.push({ type: 'text', text: message + (attachments.length ? '\\n\\nAttached files: ' + attachments.map(file => file.name).join(', ') : '') });
                 chatHistory.push({ role: 'user', content: attachments.length ? userContent : message });
+                userMessageAddedToHistory = true;
                 console.log('📡 Calling Puter AI with model:', currentModel, 'and full history.');
                 
                 const response = await puter.ai.chat(chatHistory, {
@@ -1381,14 +1383,13 @@
                 
                 // FIX: The API call failed, so the optimistic user message added to the history
                 // resulted in an invalid state. Remove it to allow the user to try again.
-                if (chatHistory.length > 0 && chatHistory[chatHistory.length - 1].role === 'user') {
+                if (userMessageAddedToHistory && chatHistory.length > 0 && chatHistory[chatHistory.length - 1].role === 'user') {
                     chatHistory.pop();
                 }
 
             } finally {
-                for (const path of uploadedPaths) {
-                    try { await puter.fs.delete(path); } catch (cleanupError) { console.warn('Temporary attachment cleanup failed:', cleanupError); }
-                }
+                // Keep uploaded files in the user's Puter storage while this conversation
+                // is active so later turns can still refer to the same attachments.
                 isStreaming = false;
                 setInputState(true);
                 document.getElementById('chatInput')?.focus();
