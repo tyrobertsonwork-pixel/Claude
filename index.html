@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Claude Interface - Fully Functional</title>
+    <title>Claude</title>
     <script src="https://js.puter.com/v2/"></script>
     <style>
         * {
@@ -914,9 +914,9 @@
     <script>
         // Global state
         const availableModels = [
-            { apiName: 'claude-sonnet-5', displayName: 'Claude Sonnet 5', shortName: 'Sonnet 5' },
-            { apiName: 'claude-opus-5', displayName: 'Claude Opus 5', shortName: 'Opus 5' },
-            { apiName: 'claude-haiku-4-5', displayName: 'Claude Haiku 4.5', shortName: 'Haiku 4.5' }
+            { apiName: 'anthropic/claude-sonnet-5-5', displayName: 'Claude Sonnet 5.5', shortName: 'Sonnet 5.5' },
+            { apiName: 'anthropic/claude-opus-5-5', displayName: 'Claude Opus 5.5', shortName: 'Opus 5.5' },
+            { apiName: 'anthropic/claude-haiku-5-5', displayName: 'Claude Haiku 5.5', shortName: 'Haiku 5.5' }
         ];
         let currentModel = availableModels[0].apiName;
         let chatHistory = [];
