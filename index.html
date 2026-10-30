@@ -599,22 +599,136 @@
             white-space: pre;
         }
 
+        /* Responsive layout for phones and small tablets */
         @media (max-width: 768px) {
+            html, body {
+                width: 100%;
+                min-width: 0;
+                height: 100%;
+                overflow: hidden;
+            }
+
+            .container {
+                display: block;
+                width: 100%;
+                height: 100dvh;
+                min-height: 100%;
+            }
+
+            /* The desktop navigation was squeezing the conversation into half a screen. */
             .sidebar {
-                width: 240px;
+                display: none !important;
             }
-            
+
+            .main-content {
+                display: flex;
+                width: 100%;
+                height: 100%;
+                min-width: 0;
+            }
+
+            .content-area {
+                width: 100%;
+                max-width: none;
+                min-width: 0;
+                height: 100%;
+                padding: max(16px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom));
+                margin: 0;
+            }
+
+            .welcome-screen {
+                width: 100%;
+                min-width: 0;
+                justify-content: center;
+                padding: 20px 0;
+                gap: 14px;
+                overflow-y: auto;
+            }
+
             .greeting {
-                font-size: 24px;
+                width: 100%;
+                font-size: clamp(25px, 7vw, 34px);
+                line-height: 1.2;
+                text-align: center;
+                justify-content: center;
+                margin-bottom: 8px;
             }
-            
+
+            .search-container,
+            .welcome-screen > div[style*="max-width: 600px"] {
+                width: 100%;
+                max-width: 100%;
+                min-width: 0;
+            }
+
+            .search-input {
+                display: block;
+                width: 100%;
+                min-width: 0;
+                font-size: 16px;
+                padding: 15px 94px 15px 14px;
+            }
+
+            .search-actions {
+                gap: 6px;
+            }
+
+            .model-selector {
+                align-self: center;
+                margin: 0 0 10px;
+            }
+
             .action-buttons {
-                flex-direction: column;
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 10px;
                 width: 100%;
             }
-            
+
             .action-btn {
                 justify-content: center;
+                min-width: 0;
+                padding: 13px 10px;
+                font-size: 14px;
+            }
+
+            .chat-container {
+                width: 100%;
+                height: 100%;
+                max-height: 100%;
+                min-width: 0;
+            }
+
+            .chat-messages {
+                padding: 16px 12px;
+                min-width: 0;
+            }
+
+            .chat-container .search-container {
+                width: 100%;
+                padding: 12px 0 max(12px, env(safe-area-inset-bottom));
+            }
+
+            .artifact-canvas {
+                margin: 10px 0;
+                max-width: 100%;
+            }
+        }
+
+        @media (max-width: 380px) {
+            .content-area {
+                padding-left: 12px;
+                padding-right: 12px;
+            }
+
+            .action-buttons {
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+            }
+
+            .action-btn {
+                padding: 12px 6px;
+                font-size: 13px;
             }
         }
     </style>
@@ -689,7 +803,7 @@
                         <svg class="sun-icon" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/>
                         </svg>
-                        Good morning, Hassan
+                        Good morning
                     </div>
                     
                     <div class="search-container">
