@@ -948,6 +948,37 @@
             }
         }
 
+        function refreshPuterAuthStatus() {
+            const authButton = document.getElementById('authButton');
+            if (!authButton) return;
+
+            // Check Puter's real session on every page load. Never rely on a
+            // localStorage flag because that could falsely claim the user is signed in.
+            if (!window.puter || !puter.auth || typeof puter.auth.isSignedIn !== 'function') {
+                authButton.textContent = 'Sign in with Puter';
+                authButton.disabled = false;
+                return;
+            }
+
+            try {
+                if (puter.auth.isSignedIn()) {
+                    authButton.textContent = '✓ Already connected to Puter';
+                    authButton.style.backgroundColor = '#22c55e';
+                    authButton.disabled = true;
+                    const authBox = authButton.closest('div[style*="max-width: 600px"]');
+                    if (authBox) authBox.style.display = 'none';
+                } else {
+                    authButton.textContent = 'Sign in with Puter';
+                    authButton.style.backgroundColor = '#ff6b35';
+                    authButton.disabled = false;
+                }
+            } catch (error) {
+                console.warn('Could not read Puter sign-in status:', error);
+                authButton.textContent = 'Sign in with Puter';
+                authButton.disabled = false;
+            }
+        }
+
         async function handleManualAuth() {
             const authButton = document.getElementById('authButton');
 
@@ -1010,6 +1041,7 @@
             const authButton = document.getElementById('authButton');
 
             if (authButton) authButton.addEventListener('click', handleManualAuth);
+            refreshPuterAuthStatus();
 
             [welcomeInput, chatInput].forEach(textarea => {
                 if (textarea) {
