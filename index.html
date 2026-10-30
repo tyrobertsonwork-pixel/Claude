@@ -950,76 +950,53 @@
 
         async function handleManualAuth() {
             const authButton = document.getElementById('authButton');
-            
+
+            if (!window.puter || !puter.auth || typeof puter.auth.signIn !== 'function') {
+                alert('Puter could not load. Please refresh this page and try again.');
+                return;
+            }
+
             try {
                 if (authButton) {
-                    authButton.textContent = '🔄 Authenticating...';
+                    authButton.textContent = 'Opening Puter sign-in...';
                     authButton.disabled = true;
                 }
-                
-                console.log('🔐 Manually triggering Puter authentication...');
-                
-                // Trigger authentication with a simple test call
-                const authResponse = await puter.ai.chat("test", {model: 'claude-sonnet-4'});
-                
-                console.log('✅ Raw auth response:', authResponse);
 
-                // Check for a successful response structure
-                if (authResponse && (authResponse.message?.content || authResponse.success !== false)) {
-                     console.log('✅ Authentication successful!');
-                    if (authButton) {
-                        authButton.textContent = '✅ Authenticated';
-                        authButton.style.backgroundColor = '#22c55e';
-                        setTimeout(() => {
-                           const authBox = authButton.closest('div[style*="max-width: 600px"]');
-                           if(authBox) authBox.style.display = 'none';
-                        }, 2000);
-                    }
-                } else {
-                    throw new Error('Authentication response indicates failure.');
+                // Must be called directly from this button click so Safari allows
+                // Puter to open its sign-in window.
+                await puter.auth.signIn();
+
+                const signedIn = puter.auth.isSignedIn();
+                if (!signedIn) {
+                    throw new Error('Puter sign-in finished, but this page is not yet signed in. Please try again.');
                 }
-                
-            } catch (error) {
-                console.error('❌ Manual authentication failed:', error);
-                
+
+                console.log('Puter authentication successful');
                 if (authButton) {
-                    authButton.textContent = '❌ Auth Failed - Try Guide';
+                    authButton.textContent = '✓ Connected to Puter';
+                    authButton.style.backgroundColor = '#22c55e';
                     authButton.disabled = false;
-                    authButton.style.backgroundColor = '#dc2626';
                 }
-                
-                // --- ENHANCED ERROR MESSAGE ---
-                const troubleshootGuide = `
-⚠️ AUTHENTICATION FAILED!
+            } catch (error) {
+                console.error('Puter sign-in failed:', error);
+                const code = error && error.error ? error.error : '';
+                const message = error && error.msg ? error.msg : (error && error.message ? error.message : String(error));
+                if (authButton) {
+                    authButton.textContent = 'Sign in with Puter';
+                    authButton.disabled = false;
+                    authButton.style.backgroundColor = '';
+                }
 
-This usually happens because of your browser profile settings (extensions, cache, etc.), NOT a bug in the code.
+                let help = message;
+                if (code === 'popup_blocked') {
+                    help = 'Safari blocked the Puter sign-in window. Allow pop-ups for this website, then try again.';
+                } else if (code === 'auth_window_closed') {
+                    help = 'The Puter sign-in window was closed before sign-in was completed.';
+                } else if (code === 'unsupported_origin') {
+                    help = 'Puter cannot authenticate this page from its current address. Open the GitHub Pages website directly in Safari.';
+                }
 
-As you noticed, it works in a new Guest or Incognito profile. Here is how to fix it in your MAIN profile:
-
---- TROUBLESHOOTING GUIDE ---
-
-✅ QUICKEST FIX (TRY FIRST):
-1.  🥷 Use Incognito/Private Mode:
-    • Press Ctrl+Shift+N (Chrome/Edge) or Ctrl+Shift+P (Firefox).
-    • Open this HTML file there. This is the fastest workaround.
-
-🔧 TO FIX YOUR MAIN PROFILE (TRY IN ORDER):
-2.  🔌 Disable Extensions:
-    • Go to your browser's extensions page (e.g., chrome://extensions).
-    • TEMPORARILY disable ALL extensions, especially ad-blockers (uBlock, AdBlock) and privacy blockers.
-    • Refresh this page and try authenticating again.
-
-3.  🧹 Clear Site Data for Puter:
-    • Go to puter.com, click the 🔒 icon in the address bar -> Site Settings/Cookies and site data -> Delete data.
-    • Refresh this page and try again.
-
-4.  🍪 Allow Third-Party Cookies:
-    • Go to your browser's cookie settings (e.g., chrome://settings/cookies).
-    • Ensure "Block third-party cookies" is NOT enabled, or add "[*.]puter.com" to the allowed list.
-
-If you are running this from a local server (like localhost), the issue is almost certainly extensions or cookie settings.
-`;
-                alert(troubleshootGuide);
+                alert('Puter sign-in failed' + (code ? ' (' + code + ')' : '') + ':\n\n' + help);
             }
         }
 
